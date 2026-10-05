@@ -136,8 +136,13 @@ The submission workflow receives raw text through `POST /submit`, then processes
 ## AI Tool Plan
 
 **M3 (submission endpoint + first signal)**
-Which spec sections you'll provide to the AI tool (hint: your detection signals section + the diagram), what you'll ask it to generate (Flask app skeleton + the first signal function), and how you'll verify the output (test with a few inputs directly before wiring into the endpoint).
+
+I'll give codex/claude my detection signals and architecture diagram and ask it to generate the skelton of my Flask app and the first signal function (Groq). I'll verify the output by testing a few inputs directly before wiring it into the submission endpoint.
+
 **M4 (second signal + confidence scoring)**
-Which spec sections you'll provide (detection signals + uncertainty representation + diagram), what you'll ask for (second signal function + scoring logic), and what you'll check (do scores vary meaningfully between clearly AI and clearly human text?).
+
+I'll next give codex/claude my detection signals, diagram, and my uncertainty representation sections and ask it to generate the second signal function (stylistic heuristics) and also the scoring logic. For verification, I'll check to see if the scores vary enough between clearly AI and clearly human text.
+
 **M5 (production layer)**
-Which spec sections you'll provide (label variants + appeals workflow + diagram), what you'll ask for (label generation logic + the /appeal endpoint), and how you'll verify (test all three label variants are reachable and that an appeal updates status correctly).
+
+I'll lastly give codex/claude my diagram with my appeals workflow and label variants sections and ask for label generation logic and the appeal endpoint. I'll verify by testing that all three labels (HC Human, HC AI, and Uncertain) are reachable and than an appeal updates status to "under review" correctly.
