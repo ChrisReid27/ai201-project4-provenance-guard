@@ -4,7 +4,7 @@ This is the path a single piece of text takes from submission to the label a use
 
 The text first enters the system through the `content submission` endpoint. Before processing starts, `rate limiting` is enforced on the request by the rate limiter, checking its IP address or API token against already defined thresholds to prevent attacks. If the request is above a max limit then too many requests gets returned, but if it's under then the request continues.
 
-The `multi signal detection pipeline` analyzes the text using at least two types of signal detections: LLM based classification with Groq (using openai/gpt-oss-120b) and stylometric heuristics (computable within python). Groq asks the model to assess whether text reads as human or AI-generated and captures semantic and stylistic coherence holistically. Stylometric heuristics are measurable statistical properties that differ between human and AI writing such as sentence length variance, type-token ratio (vocabulary diversity), punctuation density, or average sentence complexity. Blindspots are that Groq... and stylometric heuristics... Each signal analyzes the text and gives a raw score/feature vector detailing if the writing is human or AI based on if its close or not close to known AI-generated patterns vs human writing patterns.
+The `multi signal detection pipeline` analyzes the text using at least two types of signal detections: LLM based classification with Groq (using openai/gpt-oss-120b) and stylometric heuristics (computable within python). Groq asks the model to assess whether text reads as human or AI-generated and captures semantic and stylistic coherence holistically. Stylometric heuristics are measurable statistical properties that differ between human and AI writing such as sentence length variance, type-token ratio (vocabulary diversity), punctuation density, or average sentence complexity. Blindspots for Groq are that it may produce false positives for polished, formal, short, multilingual, or domain/subject-specific human writing, and false negatives when generated text has been edited, paraphrased, or mixed with human writing. Blindspots for stylometric heuristics would be misclassifing legitimate writing due to genre, dialect, language proficiency, accessibility tools, editing software, and intentional stylistic choices affecting the features it measures. They are less reliable on short texts and can be manipulated by changing sentence structure or punctuation. Each signal analyzes the text and gives a raw score/feature vector detailing if the writing is human or AI based on if its close or not close to known AI-generated patterns vs human writing patterns. Neither signal can prove AI vs human writing perfectly, they only serve to provide probability based evidence.
 
 The outputs from the detection pipeline get aggregated in the confidence calculator. It weighs the similarities and disimilarities of the two different signal scores from before and delivers its own final score between 0 and 1. High similarity between two signal scores gives `confidence scores` near 0 or 1, while conflicting scores from the signals gives confidence near 0.5 indicating `uncertainty`.
 
@@ -22,7 +22,30 @@ My two detection signals are LLM based classification (Groq) and stylometric heu
 
 **Uncertainty Representation**
 
-A score of 0.6 for my system woull most likely mean uncertain. Values surrounding 0.5 will most likely be marked uncertain (0.45-0.5 and then 0.5-0.65). Raw signal output will get mapped to a calibrated score by... The threshhold that separates "likely AI" from "uncertain" from "likely human would be...
+A score of 0.6 for my system will be deemed uncertain by my system. Values surrounding 0.5 (max uncertainty or mixed signal) will most likely be marked uncertain (0.45-0.5 and then 0.5-0.65). Raw signal output will get mapped to a calibrated score by using a labeled calibration dataset where each signal gets calibrated separately before combining. The threshhold that separates "likely AI" from "uncertain" from "likely human would be:
+- `0.00–0.44`: High Confidence Human (when signal disagreement is below `0.25`)
+- `0.45–0.65`: Uncertain
+- `0.66–1.00`: High Confidence AI, (when signal disagreement is below `0.25`)
+
+- **Steps for calibration:**
+1. **Groq score:** Groq will return a structured score indicating how likely the text is AI-generated.
+2. **Stylometric score:** A logistic regression model will convert the stylometric feature vector into an AI-likelihood score.
+3. **Calibration:** Using a held-out dataset containing labeled human-written and AI-generated examples, each raw score will be calibrated against the known labels. Platt scaling or isotonic regression will be used so that, for example, a calibrated score of `0.80` corresponds approximately to an 80% AI likelihood on similar validation data.
+4. **Combination:** The two calibrated scores will be combined using a weighted model trained on the validation data:
+
+   `combined_score = 0.6 * groq_score + 0.4 * stylometric_score`
+
+   (The weights might changed after evaluating accuracy and calibration performance.)
+
+5. **Signal disagreement:** The system will also calculate:
+
+   `disagreement = abs(groq_score - stylometric_score)`
+
+   (A large disagreement will lower the confidence, even if the combined score is high or low.)
+
+Any result with disagreement of `0.25` or higher will receive the `Uncertain` label. The raw scores, calibrated scores, combined score, disagreement value, calibration version, and final label will get stored in the audit log.
+
+The calibration dataset will be separate from the final test dataset. Thresholds and weights will be selected using validation data and evaluated on the test data to measure false positives, false negatives, and calibration error.
 
 **Transparency Label Design**
 
@@ -108,6 +131,9 @@ Appeal Flow
    v
 [Appeal Queue / Platform Interface]
 ```
+- **Diagram Summary**:
+
+The submission workflow receives raw text through `POST /submit`, then processes it through the Groq and stylometric signals, combines their calibrated scores, generates a transparency label, and then records the decision in the audit log before returning the result to the user. The appeals workflow receives the user's reasoning through `POST /appeal`, changes the submission status to `under review`, records the appeal alongside the original decision, and returns the updated status for human review.
 
 ## AI Tool Plan
 
