@@ -12,12 +12,26 @@ from signals.groq import groq_signal
 
 
 load_dotenv()
+_AUDIT_LOG: list[dict[str, Any]] = []
+
+
+def get_log() -> list[dict[str, Any]]:
+    """Return a snapshot of the structured audit entries."""
+    return list(_AUDIT_LOG)
+
+
+def _attribution_label(score: float) -> str:
+    """Map the signal score to the current attribution categories."""
+    if score >= 0.66:
+        return "likely_ai"
+    if score <= 0.44:
+        return "likely_human"
+    return "uncertain"
 
 
 def create_app(groq_client: Any = None) -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
-    app.config["AUDIT_LOG"] = []
 
     @app.route("/")
     def home():
@@ -47,15 +61,17 @@ def create_app(groq_client: Any = None) -> Flask:
 
         confidence = 0.5
         label = "Uncertain"
-        app.config["AUDIT_LOG"].append(
+        _AUDIT_LOG.append(
             {
                 "content_id": content_id,
                 "creator_id": payload["creator_id"],
-                "text": payload["text"],
-                "attribution": attribution,
+                "timestamp": datetime.now(timezone.utc)
+                .isoformat(timespec="milliseconds")
+                .replace("+00:00", "Z"),
+                "attribution": _attribution_label(attribution["score"]),
                 "confidence": confidence,
-                "label": label,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "llm_score": attribution["score"],
+                "status": "classified",
             }
         )
         return (
@@ -69,6 +85,11 @@ def create_app(groq_client: Any = None) -> Flask:
             ),
             200,
         )
+
+    @app.get("/log")
+    def audit_log() -> ResponseReturnValue:
+        """Return the most recent structured audit entries."""
+        return jsonify({"entries": get_log()})
 
     return app
 
