@@ -25,7 +25,7 @@ My two detection signals are LLM based classification (Groq) and stylometric heu
 A score of 0.6 for my system will be deemed uncertain by my system. Values surrounding 0.5 (max uncertainty or mixed signal) will most likely be marked uncertain (0.45-0.5 and then 0.5-0.65). Raw signal output will get mapped to a calibrated score by using a labeled calibration dataset where each signal gets calibrated separately before combining. The threshhold that separates "likely AI" from "uncertain" from "likely human would be:
 - `0.00–0.44`: High Confidence Human (when signal disagreement is below `0.25`)
 - `0.45–0.65`: Uncertain
-- `0.66–1.00`: High Confidence AI, (when signal disagreement is below `0.25`)
+- `0.66–1.00`: High Confidence AI (when signal disagreement is below `0.25`)
 
 - **Steps for calibration:**
 1. **Groq score:** Groq will return a structured score indicating how likely the text is AI-generated.
@@ -43,9 +43,7 @@ A score of 0.6 for my system will be deemed uncertain by my system. Values surro
 
    (A large disagreement will lower the confidence, even if the combined score is high or low.)
 
-Any result with disagreement of `0.25` or higher will receive the `Uncertain` label. The raw scores, calibrated scores, combined score, disagreement value, calibration version, and final label will get stored in the audit log.
-
-The calibration dataset will be separate from the final test dataset. Thresholds and weights will be selected using validation data and evaluated on the test data to measure false positives, false negatives, and calibration error.
+Any result with disagreement of `0.25` or higher will get labeled `Uncertain`. The raw scores, calibrated scores, combined score, disagreement value, calibration version, and final label will get stored in the audit log. The calibration dataset will be separate from the final test dataset. Thresholds and weights will be selected using validation data and evaluated on the test data to measure false positives, false negatives, and calibration error.
 
 **Transparency Label Design**
 
@@ -138,7 +136,8 @@ The submission workflow receives raw text through `POST /submit`, then processes
 ## AI Tool Plan
 
 **M3 (submission endpoint + first signal)**
-
+Which spec sections you'll provide to the AI tool (hint: your detection signals section + the diagram), what you'll ask it to generate (Flask app skeleton + the first signal function), and how you'll verify the output (test with a few inputs directly before wiring into the endpoint).
 **M4 (second signal + confidence scoring)**
-
+Which spec sections you'll provide (detection signals + uncertainty representation + diagram), what you'll ask for (second signal function + scoring logic), and what you'll check (do scores vary meaningfully between clearly AI and clearly human text?).
 **M5 (production layer)**
+Which spec sections you'll provide (label variants + appeals workflow + diagram), what you'll ask for (label generation logic + the /appeal endpoint), and how you'll verify (test all three label variants are reachable and that an appeal updates status correctly).
