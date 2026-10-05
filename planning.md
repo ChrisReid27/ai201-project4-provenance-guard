@@ -4,7 +4,7 @@ This is the path a single piece of text takes from submission to the label a use
 
 The text first enters the system through the `content submission` endpoint. Before processing starts, `rate limiting` is enforced on the request by the rate limiter, checking its IP address or API token against already defined thresholds to prevent attacks. If the request is above a max limit then too many requests gets returned, but if it's under then the request continues.
 
-The `multi signal detection pipeline` analyzes the text using at least two types of signal detections: LLM based classification with Groq (usisng openai/gpt-oss-120b) and stylometric heuristics (computable within python). Groq asks the model to assess whether text reads as human or AI-generated and captures semantic and stylistic coherence holistically. Stylometric heuristics are measurable statistical properties that differ between human and AI writing such as sentence length variance, type-token ratio (vocabulary diversity), punctuation density, or average sentence complexity. Blindspots are that Groq... and stylometric heuristics... Each signal analyzes the text and gives a raw score/feature vector detailing if the writing is human or AI based on if its close or not close to known AI-generated patterns vs human writing patterns.
+The `multi signal detection pipeline` analyzes the text using at least two types of signal detections: LLM based classification with Groq (using openai/gpt-oss-120b) and stylometric heuristics (computable within python). Groq asks the model to assess whether text reads as human or AI-generated and captures semantic and stylistic coherence holistically. Stylometric heuristics are measurable statistical properties that differ between human and AI writing such as sentence length variance, type-token ratio (vocabulary diversity), punctuation density, or average sentence complexity. Blindspots are that Groq... and stylometric heuristics... Each signal analyzes the text and gives a raw score/feature vector detailing if the writing is human or AI based on if its close or not close to known AI-generated patterns vs human writing patterns.
 
 The outputs from the detection pipeline get aggregated in the confidence calculator. It weighs the similarities and disimilarities of the two different signal scores from before and delivers its own final score between 0 and 1. High similarity between two signal scores gives `confidence scores` near 0 or 1, while conflicting scores from the signals gives confidence near 0.5 indicating `uncertainty`.
 
@@ -22,7 +22,7 @@ My two detection signals are LLM based classification (Groq) and stylometric heu
 
 **Uncertainty Representation**
 
-A score of 0.6 for my system woull most likely mean uncertain, probably similar for 0.4 as well. Raw signal output will get mapped to a calibrated score by... The threshhold that separates "likely AI" from "uncertain" from "likely human would be...
+A score of 0.6 for my system woull most likely mean uncertain. Values surrounding 0.5 will most likely be marked uncertain (0.45-0.5 and then 0.5-0.65). Raw signal output will get mapped to a calibrated score by... The threshhold that separates "likely AI" from "uncertain" from "likely human would be...
 
 **Transparency Label Design**
 
@@ -44,6 +44,70 @@ A user who disagrees with the systems final classification conclusion can submit
 ## Architecure
 
 **Diagram**
+
+```
+text
+Submission Flow
+
+[Client]
+   |
+   | raw text
+   v
+[POST /submit]
+   |
+   | raw text
+   v
+[Signal 1: Groq LLM Classification]
+   |
+   | signal score
+   v
+[Signal 2: Stylometric Heuristics]
+   |
+   | signal score
+   v
+[Confidence Scoring]
+   |
+   | combined score
+   v
+[Transparency Label Generator]
+   |
+   | label text
+   v
+[Audit Log]
+   |
+   | text, label, scores, metadata
+   v
+[Response to Client]
+   |
+   | label text + confidence
+   v
+[Platform Interface]
+
+
+Appeal Flow
+
+[Client]
+   |
+   | appeal reasoning + submission ID
+   v
+[POST /appeal]
+   |
+   | appeal data
+   v
+[Status Update]
+   |
+   | status: under review
+   v
+[Audit Log]
+   |
+   | appeal data + updated status
+   v
+[Response to Client]
+   |
+   | updated review status
+   v
+[Appeal Queue / Platform Interface]
+```
 
 ## AI Tool Plan
 
