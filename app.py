@@ -83,6 +83,7 @@ def create_app(groq_client: Any = None) -> Flask:
                 "combined_score": confidence_result["combined_score"],
                 "disagreement": confidence_result["disagreement"],
                 "status": "classified",
+                "appeal_filed": False,
             }
         )
         return (
@@ -135,6 +136,7 @@ def create_app(groq_client: Any = None) -> Flask:
             return jsonify({"error": "No classified submission found"}), 404
 
         original["status"] = "under_review"
+        original["appeal_filed"] = True
         _AUDIT_LOG.append(
             {
                 "content_id": content_id,
@@ -145,6 +147,7 @@ def create_app(groq_client: Any = None) -> Flask:
                 "appeal_reasoning": payload["creator_reasoning"],
                 "status": "under_review",
                 "event": "appeal",
+                "appeal_filed": True,
             }
         )
         return (
