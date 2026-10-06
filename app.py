@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask.typing import ResponseReturnValue
 
 from signals.groq import groq_signal
@@ -26,12 +28,19 @@ def get_log() -> list[dict[str, Any]]:
 def create_app(groq_client: Any = None) -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=[],
+        storage_uri="memory://",
+    )
 
     @app.route("/")
     def home():
         return "Provenance Guard is running."
 
     @app.post("/submit")
+    @limiter.limit("10 per minute;100 per day")
     def submit() -> ResponseReturnValue:
         """Classify a submission with signal one and return its initial result."""
         payload = request.get_json(silent=True)
