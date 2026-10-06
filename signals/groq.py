@@ -17,15 +17,14 @@ class GroqSignalResult(TypedDict):
 
     signal: str
     score: float
-    explanation: str
 
 
 def groq_signal(text: str, client: Groq | None = None) -> GroqSignalResult:
     """Return the model's estimated probability that ``text`` is AI-generated.
 
-    The model is required to return JSON with an ``ai_probability`` number from
-    0.00 to 1.00, and an optional ``explanation``. A client can be supplied to make
-    the signal straightforward to test without making a network request.
+    The model is required to return JSON with only an ``ai_probability`` number
+    from 0.00 to 1.00. A client can be supplied to make the signal
+    straightforward to test without making a network request.
     """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("text must be a non-empty string")
@@ -42,13 +41,17 @@ def groq_signal(text: str, client: Groq | None = None) -> GroqSignalResult:
             {
                 "role": "system",
                 "content": (
-                    "Assess whether the submitted text is AI-generated. "
-                    "Use 0.00 for clearly human writing, 1.00 for clearly "
-                    "AI-generated writing, and values near 0.50 for borderline "
-                    "or mixed cases. Consider personal specificity, casualness, "
-                    "formal or technical style, repetition, and editing. "
-                    "Return only JSON with ai_probability, a number from 0.00 "
-                    "to 1.00, and explanation, a concise string."
+                    "Assess whether the submitted text is AI-generated and "
+                    "return only JSON in this exact shape: "
+                    '{"ai_probability": 0.00}. '
+                    "Use these score anchors: 0.00-0.20 strongly human, "
+                    "0.21-0.40 probably human, 0.41-0.59 borderline, "
+                    "0.60-0.79 probably AI, and 0.80-1.00 strongly AI. "
+                    "Evaluate personal specificity, conversational language, "
+                    "generic or formulaic phrasing, repetition, sentence "
+                    "organization, and signs of editing or mixed authorship. "
+                    "Do not treat formal, technical, academic, or promotional "
+                    "writing as AI by itself."
                 ),
             },
             {"role": "user", "content": text},
@@ -63,7 +66,6 @@ def groq_signal(text: str, client: Groq | None = None) -> GroqSignalResult:
     try:
         result: Any = json.loads(content)
         score = result["ai_probability"]
-        explanation = result.get("explanation", "")
     except (AttributeError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise ValueError("Groq returned invalid classification JSON") from error
 
@@ -71,11 +73,7 @@ def groq_signal(text: str, client: Groq | None = None) -> GroqSignalResult:
         raise ValueError("Groq ai_probability must be a number")
     if not 0.00 <= score <= 1.00:
         raise ValueError("Groq ai_probability must be between 0.00 and 1.00")
-    if not isinstance(explanation, str):
-        raise ValueError("Groq explanation must be a string")
-
     return {
         "signal": "groq",
         "score": float(score),
-        "explanation": explanation,
     }
