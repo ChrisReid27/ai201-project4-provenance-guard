@@ -42,14 +42,19 @@ def groq_signal(text: str, client: Groq | None = None) -> GroqSignalResult:
             {
                 "role": "system",
                 "content": (
-                    "Classify whether the submitted text is AI-generated. "
-                    "Return only JSON with ai_probability, a number from 0.00 to 1.00, "
-                    "and explanation, a concise string."
+                    "Assess whether the submitted text is AI-generated. "
+                    "Use 0.00 for clearly human writing, 1.00 for clearly "
+                    "AI-generated writing, and values near 0.50 for borderline "
+                    "or mixed cases. Consider personal specificity, casualness, "
+                    "formal or technical style, repetition, and editing. "
+                    "Return only JSON with ai_probability, a number from 0.00 "
+                    "to 1.00, and explanation, a concise string."
                 ),
             },
             {"role": "user", "content": text},
         ],
         response_format={"type": "json_object"},
+        temperature=0,
     )
     content = completion.choices[0].message.content
     if not content:

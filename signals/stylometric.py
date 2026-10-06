@@ -48,7 +48,10 @@ def stylometric_signal(text: str) -> StylometricSignalResult:
         sentence_lengths
     )
     sentence_length_stddev = math.sqrt(variance)
-    sentence_uniformity = 1.0 / (1.0 + sentence_length_stddev)
+    if len(sentence_lengths) < 2:
+        sentence_uniformity = 0.5
+    else:
+        sentence_uniformity = 1.0 / (1.0 + sentence_length_stddev)
 
     type_token_ratio = len(set(words)) / len(words)
     punctuation_count = sum(character in string.punctuation for character in text)
@@ -57,11 +60,13 @@ def stylometric_signal(text: str) -> StylometricSignalResult:
     # These broad ranges keep the uncalibrated heuristic on the required 0-1 scale.
     ttr_ai_likelihood = _clamp((type_token_ratio - 0.35) / 0.45)
     punctuation_ai_likelihood = _clamp(punctuation_density / 0.20)
-    score = _clamp(
+    raw_score = _clamp(
         0.45 * sentence_uniformity
         + 0.35 * ttr_ai_likelihood
         + 0.20 * punctuation_ai_likelihood
     )
+    reliability = min(1.0, len(words) / 100.0)
+    score = _clamp(0.5 + reliability * (raw_score - 0.5))
 
     return {
         "signal": "stylometric",
@@ -71,5 +76,6 @@ def stylometric_signal(text: str) -> StylometricSignalResult:
             "sentence_uniformity": sentence_uniformity,
             "type_token_ratio": type_token_ratio,
             "punctuation_density": punctuation_density,
+            "reliability": reliability,
         },
     }

@@ -23,9 +23,9 @@ My two detection signals are LLM based classification (Groq) and stylometric heu
 **Uncertainty Representation**
 
 A score of 0.6 for my system will be deemed uncertain by my system. Values surrounding 0.5 (max uncertainty or mixed signal) will most likely be marked uncertain (0.45-0.5 and then 0.5-0.65). Raw signal output will get mapped to a calibrated score by using a labeled calibration dataset where each signal gets calibrated separately before combining. The threshhold that separates "likely AI" from "uncertain" from "likely human would be:
-- `0.00–0.44`: High Confidence Human (when signal disagreement is below `0.25`)
+- `0.00–0.44`: High Confidence Human
 - `0.45–0.65`: Uncertain
-- `0.66–1.00`: High Confidence AI (when signal disagreement is below `0.25`)
+- `0.66–1.00`: High Confidence AI
 
 - **Steps for calibration:**
 1. **Groq score:** Groq will return a structured score indicating how likely the text is AI-generated.
@@ -33,7 +33,9 @@ A score of 0.6 for my system will be deemed uncertain by my system. Values surro
 3. **Calibration:** Using a held-out dataset containing labeled human-written and AI-generated examples, each raw score will be calibrated against the known labels. Platt scaling or isotonic regression will be used so that, for example, a calibrated score of `0.80` corresponds approximately to an 80% AI likelihood on similar validation data.
 4. **Combination:** The two calibrated scores will be combined using a weighted model trained on the validation data:
 
-   `combined_score = 0.6 * groq_score + 0.4 * stylometric_score`
+   The initial prototype uses `combined_score = 0.75 * groq_score + 0.25 * stylometric_score`
+   to limit interference from the uncalibrated stylometric fallback. These weights
+   should be revisited after calibration.
 
    (The weights might changed after evaluating accuracy and calibration performance.)
 
@@ -43,7 +45,15 @@ A score of 0.6 for my system will be deemed uncertain by my system. Values surro
 
    (A large disagreement will lower the confidence, even if the combined score is high or low.)
 
-Any result with disagreement of `0.25` or higher will get labeled `Uncertain`. The raw scores, calibrated scores, combined score, disagreement value, calibration version, and final label will get stored in the audit log. The calibration dataset will be separate from the final test dataset. Thresholds and weights will be selected using validation data and evaluated on the test data to measure false positives, false negatives, and calibration error.
+The prototype applies disagreement as a soft confidence penalty that moves the
+combined score toward neutral:
+`confidence = combined_score + (0.5 - combined_score) * 0.5 * disagreement`,
+rather than making
+every disagreement of `0.25` or higher automatically `Uncertain`. The raw scores,
+calibrated scores, combined score, disagreement value, calibration version, and
+final label will get stored in the audit log. Once calibration data exists, the
+weights, penalty, and thresholds should be evaluated on held-out data for false
+positives, false negatives, and calibration error.
 
 **Transparency Label Design**
 

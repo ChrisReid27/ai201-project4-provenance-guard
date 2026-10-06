@@ -20,10 +20,11 @@ class ConfidenceResult(TypedDict):
 
 
 def calculate_confidence(groq_score: float, stylometric_score: float) -> ConfidenceResult:
-    """Combine calibrated signal scores using the planned thresholds.
+    """Combine prototype signal scores with a soft disagreement penalty.
 
-    Scores in [0.00, 0.44] are human and scores in [0.66, 1.00] are AI
-    only when disagreement is below 0.25. All other results are uncertain.
+    Groq has a 0.75 weight and stylometrics has a 0.25 weight while the
+    stylometric signal remains an uncalibrated prototype. Disagreement reduces
+    confidence but no longer overrides the combined classification.
     """
     scores = (groq_score, stylometric_score)
     if any(
@@ -35,20 +36,15 @@ def calculate_confidence(groq_score: float, stylometric_score: float) -> Confide
     ):
         raise ValueError("signal scores must be finite numbers between 0 and 1")
 
-    combined_score = 0.6 * groq_score + 0.4 * stylometric_score
+    combined_score = 0.75 * groq_score + 0.25 * stylometric_score
     disagreement = abs(groq_score - stylometric_score)
-    if disagreement >= 0.25 - _BOUNDARY_EPSILON:
-        label: Label = "Uncertain"
-        confidence = 0.5
-    elif combined_score <= 0.44 + _BOUNDARY_EPSILON:
-        label = "High Confidence Human"
-        confidence = combined_score
-    elif combined_score >= 0.66 - _BOUNDARY_EPSILON:
+    confidence = combined_score + (0.5 - combined_score) * 0.5 * disagreement
+    if confidence <= 0.44 + _BOUNDARY_EPSILON:
+        label: Label = "High Confidence Human"
+    elif confidence >= 0.66 - _BOUNDARY_EPSILON:
         label = "High Confidence AI"
-        confidence = combined_score
     else:
         label = "Uncertain"
-        confidence = combined_score
 
     return {
         "combined_score": float(combined_score),
