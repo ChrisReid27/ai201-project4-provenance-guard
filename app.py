@@ -125,7 +125,7 @@ def create_app(groq_client: Any = None) -> Flask:
         if original is None:
             return jsonify({"error": "No classified submission found"}), 404
 
-        original["status"] = "under review"
+        original["status"] = "under_review"
         _AUDIT_LOG.append(
             {
                 "content_id": content_id,
@@ -133,8 +133,8 @@ def create_app(groq_client: Any = None) -> Flask:
                 "timestamp": datetime.now(timezone.utc)
                 .isoformat(timespec="milliseconds")
                 .replace("+00:00", "Z"),
-                "creator_reasoning": payload["creator_reasoning"],
-                "status": "under review",
+                "appeal_reasoning": payload["creator_reasoning"],
+                "status": "under_review",
                 "event": "appeal",
             }
         )
@@ -142,7 +142,7 @@ def create_app(groq_client: Any = None) -> Flask:
             jsonify(
                 {
                     "content_id": content_id,
-                    "status": "under review",
+                    "status": "under_review",
                     "message": "Appeal received",
                 }
             ),
