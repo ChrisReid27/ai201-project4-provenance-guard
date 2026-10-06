@@ -1,46 +1,15 @@
-"""General stylometric features and an optional calibrated signal model."""
+"""Stylometric heuristics for estimating AI-generation likelihood."""
 
 from __future__ import annotations
 
 import math
 import re
 import string
-from typing import Protocol, TypedDict
+from typing import TypedDict
 
 
 _WORD_PATTERN = re.compile(r"[A-Za-z]+(?:['-][A-Za-z]+)?")
 _SENTENCE_PATTERN = re.compile(r"[^.!?]+")
-_FUNCTION_WORDS = {
-    "a",
-    "an",
-    "and",
-    "as",
-    "at",
-    "but",
-    "by",
-    "for",
-    "from",
-    "in",
-    "is",
-    "it",
-    "of",
-    "on",
-    "or",
-    "that",
-    "the",
-    "this",
-    "to",
-    "was",
-    "were",
-    "with",
-}
-
-
-class StylometricModel(Protocol):
-    """Interface for a fitted, calibrated classifier."""
-
-    def predict_proba(self, features: list[float]) -> float:
-        """Return the calibrated AI-likelihood for one feature vector."""
 
 
 class StylometricSignalResult(TypedDict):
@@ -55,8 +24,13 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
-def extract_stylometric_features(text: str) -> dict[str, float]:
-    """Extract domain-independent features for calibration or inspection."""
+def stylometric_signal(text: str) -> StylometricSignalResult:
+    """Estimate AI-generation likelihood from three surface-level metrics.
+
+    The score is a transparent heuristic, not a calibrated probability. It
+    combines sentence-length uniformity, type-token ratio, and punctuation
+    density; calibration can replace these weights once labeled data exists.
+    """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("text must be a non-empty string")
 
@@ -69,70 +43,33 @@ def extract_stylometric_features(text: str) -> dict[str, float]:
         for sentence in _SENTENCE_PATTERN.findall(text)
     ]
     sentence_lengths = [len(sentence) for sentence in sentences if sentence]
-    mean_sentence_length = sum(sentence_lengths) / len(sentence_lengths)
-    sentence_variance = sum(
-        (length - mean_sentence_length) ** 2 for length in sentence_lengths
-    ) / len(sentence_lengths)
-    sentence_length_stddev = math.sqrt(sentence_variance)
+    mean_length = sum(sentence_lengths) / len(sentence_lengths)
+    variance = sum((length - mean_length) ** 2 for length in sentence_lengths) / len(
+        sentence_lengths
+    )
+    sentence_length_stddev = math.sqrt(variance)
+    sentence_uniformity = 1.0 / (1.0 + sentence_length_stddev)
 
-    word_lengths = [len(word) for word in words]
-    mean_word_length = sum(word_lengths) / len(word_lengths)
-    word_length_variance = sum(
-        (length - mean_word_length) ** 2 for length in word_lengths
-    ) / len(word_lengths)
-
+    type_token_ratio = len(set(words)) / len(words)
     punctuation_count = sum(character in string.punctuation for character in text)
-    repeated_words = len(words) - len(set(words))
-    uppercase_words = sum(word.isupper() for word in text.split() if word.isalpha())
-    function_words = sum(word in _FUNCTION_WORDS for word in words)
+    punctuation_density = punctuation_count / len(words)
+
+    # These broad ranges keep the uncalibrated heuristic on the required 0-1 scale.
+    ttr_ai_likelihood = _clamp((type_token_ratio - 0.35) / 0.45)
+    punctuation_ai_likelihood = _clamp(punctuation_density / 0.20)
+    score = _clamp(
+        0.45 * sentence_uniformity
+        + 0.35 * ttr_ai_likelihood
+        + 0.20 * punctuation_ai_likelihood
+    )
 
     return {
-        "sentence_length_mean": mean_sentence_length,
-        "sentence_length_stddev": sentence_length_stddev,
-        "sentence_uniformity": 1.0 / (1.0 + sentence_length_stddev),
-        "word_length_mean": mean_word_length,
-        "word_length_stddev": math.sqrt(word_length_variance),
-        "type_token_ratio": len(set(words)) / len(words),
-        "repetition_ratio": repeated_words / len(words),
-        "punctuation_density": punctuation_count / len(words),
-        "uppercase_ratio": uppercase_words / len(words),
-        "function_word_ratio": function_words / len(words),
-        "question_ratio": text.count("?") / max(1, len(sentence_lengths)),
-        "exclamation_ratio": text.count("!") / max(1, len(sentence_lengths)),
+        "signal": "stylometric",
+        "score": score,
+        "features": {
+            "sentence_length_stddev": sentence_length_stddev,
+            "sentence_uniformity": sentence_uniformity,
+            "type_token_ratio": type_token_ratio,
+            "punctuation_density": punctuation_density,
+        },
     }
-
-
-def _provisional_score(features: dict[str, float]) -> float:
-    """Return a replaceable baseline until a labeled model is available."""
-    type_token_signal = _clamp((features["type_token_ratio"] - 0.35) / 0.45)
-    punctuation_signal = _clamp(features["punctuation_density"] / 0.20)
-    repetition_signal = _clamp(features["repetition_ratio"] / 0.35)
-    return _clamp(
-        0.35 * features["sentence_uniformity"]
-        + 0.30 * type_token_signal
-        + 0.20 * punctuation_signal
-        + 0.15 * (1.0 - repetition_signal)
-    )
-
-
-def stylometric_signal(
-    text: str, model: StylometricModel | None = None
-) -> StylometricSignalResult:
-    """Return an AI-likelihood score from general stylometric features.
-
-    A fitted calibrated model may be supplied. Without one, the result uses a
-    provisional bounded heuristic; it is not a substitute for calibration.
-    """
-    features = extract_stylometric_features(text)
-    feature_vector = list(features.values())
-    score = (
-        model.predict_proba(feature_vector)
-        if model is not None
-        else _provisional_score(features)
-    )
-    if isinstance(score, bool) or not isinstance(score, (int, float)):
-        raise ValueError("stylometric model must return a numeric score")
-    if not math.isfinite(score) or not 0.0 <= score <= 1.0:
-        raise ValueError("stylometric score must be finite and between 0 and 1")
-
-    return {"signal": "stylometric", "score": float(score), "features": features}
