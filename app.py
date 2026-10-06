@@ -11,6 +11,7 @@ from flask.typing import ResponseReturnValue
 from signals.groq import groq_signal
 from signals.stylometric import stylometric_signal
 from scoring import calculate_confidence
+from labels import generate_transparency_label
 
 
 load_dotenv()
@@ -56,6 +57,7 @@ def create_app(groq_client: Any = None) -> Flask:
         confidence_result = calculate_confidence(
             attribution["score"], stylometric["score"]
         )
+        label_text = generate_transparency_label(confidence_result["confidence"])
         _AUDIT_LOG.append(
             {
                 "content_id": content_id,
@@ -65,6 +67,7 @@ def create_app(groq_client: Any = None) -> Flask:
                 .replace("+00:00", "Z"),
                 "attribution": confidence_result["label"],
                 "confidence": confidence_result["confidence"],
+                "label": label_text,
                 "groq_score": attribution["score"],
                 "llm_score": attribution["score"],
                 "stylometric_score": stylometric["score"],
@@ -80,7 +83,67 @@ def create_app(groq_client: Any = None) -> Flask:
                     "attribution": attribution,
                     "stylometric": stylometric,
                     "confidence": confidence_result["confidence"],
-                    "label": confidence_result["label"],
+                    "label": label_text,
+                }
+            ),
+            200,
+        )
+
+    @app.post("/appeal")
+    def appeal() -> ResponseReturnValue:
+        """Record an appeal and mark the original submission under review."""
+        payload = request.get_json(silent=True)
+        if (
+            not isinstance(payload, dict)
+            or not isinstance(payload.get("content_id"), str)
+            or not isinstance(payload.get("creator_reasoning"), str)
+            or not payload["content_id"].strip()
+            or not payload["creator_reasoning"].strip()
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "Request JSON must include content_id and "
+                            "creator_reasoning strings"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        content_id = payload["content_id"]
+        original = next(
+            (
+                entry
+                for entry in reversed(_AUDIT_LOG)
+                if entry.get("content_id") == content_id
+                and entry.get("status") == "classified"
+            ),
+            None,
+        )
+        if original is None:
+            return jsonify({"error": "No classified submission found"}), 404
+
+        original["status"] = "under review"
+        _AUDIT_LOG.append(
+            {
+                "content_id": content_id,
+                "creator_id": original["creator_id"],
+                "timestamp": datetime.now(timezone.utc)
+                .isoformat(timespec="milliseconds")
+                .replace("+00:00", "Z"),
+                "creator_reasoning": payload["creator_reasoning"],
+                "status": "under review",
+                "event": "appeal",
+            }
+        )
+        return (
+            jsonify(
+                {
+                    "content_id": content_id,
+                    "status": "under review",
+                    "message": "Appeal received",
                 }
             ),
             200,
