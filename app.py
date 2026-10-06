@@ -65,6 +65,7 @@ def create_app(groq_client: Any = None) -> Flask:
                 .replace("+00:00", "Z"),
                 "attribution": confidence_result["label"],
                 "confidence": confidence_result["confidence"],
+                "groq_score": attribution["score"],
                 "llm_score": attribution["score"],
                 "stylometric_score": stylometric["score"],
                 "combined_score": confidence_result["combined_score"],
