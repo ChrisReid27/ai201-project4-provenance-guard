@@ -137,12 +137,12 @@ The submission workflow receives raw text through `POST /submit`, then processes
 
 **M3 (submission endpoint + first signal)**
 
-I'll give codex/claude my detection signals and architecture diagram and ask it to generate the skelton of my Flask app and the first signal function (Groq). I'll verify the output by testing a few inputs directly before wiring it into the submission endpoint.
+I'll give Copilot/Claude my detection signals and architecture diagram and ask it to generate the skelton of my Flask app and the first signal function (Groq). I'll verify the output by testing a few inputs directly before wiring it into the submission endpoint.
 
 **M4 (second signal + confidence scoring)**
 
-I'll next give codex/claude my detection signals, diagram, and my uncertainty representation sections and ask it to generate the second signal function (stylistic heuristics) and also the scoring logic. For verification, I'll check to see if the scores vary enough between clearly AI and clearly human text.
+I'll next give Copilot/Claude my detection signals, diagram, and my uncertainty representation sections and ask it to generate the second signal function (stylistic heuristics) and also the scoring logic. For verification, I'll check to see if the scores vary enough between clearly AI and clearly human text.
 
 **M5 (production layer)**
 
-I'll lastly give codex/claude my diagram with my appeals workflow and label variants sections and ask for label generation logic and the appeal endpoint. I'll verify by testing that all three labels (HC Human, HC AI, and Uncertain) are reachable and than an appeal updates status to "under review" correctly.
+I'll lastly give Copilot/Claude my diagram with my appeals workflow and label variants sections and ask for label generation logic and the appeal endpoint. I'll verify by testing that all three labels (HC Human, HC AI, and Uncertain) are reachable and than an appeal updates status to "under review" correctly.

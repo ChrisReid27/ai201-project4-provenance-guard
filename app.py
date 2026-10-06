@@ -9,6 +9,8 @@ from flask import Flask, jsonify, request
 from flask.typing import ResponseReturnValue
 
 from signals.groq import groq_signal
+from signals.stylometric import stylometric_signal
+from scoring import calculate_confidence
 
 
 load_dotenv()
@@ -18,15 +20,6 @@ _AUDIT_LOG: list[dict[str, Any]] = []
 def get_log() -> list[dict[str, Any]]:
     """Return a snapshot of the structured audit entries."""
     return list(_AUDIT_LOG)
-
-
-def _attribution_label(score: float) -> str:
-    """Map the signal score to the current attribution categories."""
-    if score >= 0.66:
-        return "likely_ai"
-    if score <= 0.44:
-        return "likely_human"
-    return "uncertain"
 
 
 def create_app(groq_client: Any = None) -> Flask:
@@ -56,11 +49,13 @@ def create_app(groq_client: Any = None) -> Flask:
         content_id = str(uuid4())
         try:
             attribution = groq_signal(payload["text"], client=groq_client)
+            stylometric = stylometric_signal(payload["text"])
         except (RuntimeError, ValueError) as error:
             return jsonify({"error": str(error), "content_id": content_id}), 502
 
-        confidence = 0.5
-        label = "Uncertain"
+        confidence_result = calculate_confidence(
+            attribution["score"], stylometric["score"]
+        )
         _AUDIT_LOG.append(
             {
                 "content_id": content_id,
@@ -68,9 +63,12 @@ def create_app(groq_client: Any = None) -> Flask:
                 "timestamp": datetime.now(timezone.utc)
                 .isoformat(timespec="milliseconds")
                 .replace("+00:00", "Z"),
-                "attribution": _attribution_label(attribution["score"]),
-                "confidence": confidence,
+                "attribution": confidence_result["label"],
+                "confidence": confidence_result["confidence"],
                 "llm_score": attribution["score"],
+                "stylometric_score": stylometric["score"],
+                "combined_score": confidence_result["combined_score"],
+                "disagreement": confidence_result["disagreement"],
                 "status": "classified",
             }
         )
@@ -79,8 +77,9 @@ def create_app(groq_client: Any = None) -> Flask:
                 {
                     "content_id": content_id,
                     "attribution": attribution,
-                    "confidence": confidence,
-                    "label": label,
+                    "stylometric": stylometric,
+                    "confidence": confidence_result["confidence"],
+                    "label": confidence_result["label"],
                 }
             ),
             200,
