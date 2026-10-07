@@ -238,16 +238,42 @@ stylometric score, combined score, disagreement, status, and appeal state. When 
 Example classification entries:
 
 ```json
-{
-  "content_id": "d2c16f6c-4e34-4b71-9d3c-3cac68230aac",
-  "timestamp": "2026-10-06T19:42:36.757Z",
-  "attribution": "High Confidence Human",
-  "confidence": 0.342752,
-  "groq_score": 0.25,
-  "stylometric_score": 0.522,
-  "appeal_filed": false,
-  "status": "classified"
-}
+[
+  {
+    "content_id": "d2c16f6c-4e34-4b71-9d3c-3cac68230aac",
+    "timestamp": "2026-10-06T19:42:36.757Z",
+    "attribution": "High Confidence Human",
+    "confidence": 0.342752,
+    "groq_score": 0.25,
+    "stylometric_score": 0.522,
+    "appeal_filed": false,
+    "status": "classified"
+  },
+  {
+    "content_id": "8f46a7b1-6b1c-4c61-8e9d-1e39d9d9e401",
+    "timestamp": "2026-10-06T19:43:12.104Z",
+    "attribution": "High Confidence AI",
+    "confidence": 0.6856,
+    "groq_score": 0.78,
+    "stylometric_score": 0.5156,
+    "combined_score": 0.7139,
+    "disagreement": 0.2644,
+    "appeal_filed": false,
+    "status": "classified"
+  },
+  {
+    "content_id": "f3b72c44-9b2d-4de8-a0aa-7a6f5b31c902",
+    "timestamp": "2026-10-06T19:43:12.106Z",
+    "attribution": "High Confidence Human",
+    "confidence": 0.2833,
+    "groq_score": 0.15,
+    "stylometric_score": 0.4995,
+    "combined_score": 0.2374,
+    "disagreement": 0.3495,
+    "appeal_filed": false,
+    "status": "classified"
+  }
+]
 ```
 
 For official production, the audit log should be durable, access-controlled, encrypted where appropriate, append-only or tamper-evident, and governed by a retention policy. The submitted text may contain personal or confidential information, so logging it or sending it to an external LLM requires clear privacy and data-processing decisions.
