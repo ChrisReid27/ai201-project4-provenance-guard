@@ -2,6 +2,8 @@
 
 Provenance Guard is a Flask-based prototype system that estimates whether submitted text is AI-generated or human-written. It combines an LLM-based signal (Groq) with a stylometric heuristic signal. It reports uncertainty instead of pretending that the result is proof, it records the decision of the system in its audit log, and also supports an appeal workflow.
 
+## Demo
+
 ## Architecture Overview
 
 ### Submission flow
