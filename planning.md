@@ -30,14 +30,9 @@ A score of 0.6 for my system will be deemed uncertain by my system. Values surro
 - **Steps for calibration:**
 1. **Groq score:** Groq will return a structured score indicating how likely the text is AI-generated.
 2. **Stylometric score:** A logistic regression model will convert the stylometric feature vector into an AI-likelihood score.
-3. **Calibration:** Using a held-out dataset containing labeled human-written and AI-generated examples, each raw score will be calibrated against the known labels. Platt scaling or isotonic regression will be used so that, for example, a calibrated score of `0.80` corresponds approximately to an 80% AI likelihood on similar validation data.
-4. **Combination:** The two calibrated scores will be combined using a weighted model trained on the validation data:
+3. **Combination:** The two calibrated scores will be combined using a weighted model:
 
-   The initial prototype uses `combined_score = 0.75 * groq_score + 0.25 * stylometric_score`
-   to limit interference from the uncalibrated stylometric fallback. These weights
-   should be revisited after calibration.
-
-   (The weights might changed after evaluating accuracy and calibration performance.)
+   The initial prototype will use `combined_score = 0.75 * groq_score + 0.25 * stylometric_score` to limit interference from uncalibrated stylometric fallback.
 
 5. **Signal disagreement:** The system will also calculate:
 
@@ -45,15 +40,7 @@ A score of 0.6 for my system will be deemed uncertain by my system. Values surro
 
    (A large disagreement will lower the confidence, even if the combined score is high or low.)
 
-The prototype applies disagreement as a soft confidence penalty that moves the
-combined score toward neutral:
-`confidence = combined_score + (0.5 - combined_score) * 0.5 * disagreement`,
-rather than making
-every disagreement of `0.25` or higher automatically `Uncertain`. The raw scores,
-calibrated scores, combined score, disagreement value, calibration version, and
-final label will get stored in the audit log. Once calibration data exists, the
-weights, penalty, and thresholds should be evaluated on held-out data for false
-positives, false negatives, and calibration error.
+The prototype applies disagreement as a soft confidence penalty that moves the combined score toward neutral: `confidence = combined_score + (0.5 - combined_score) * 0.5 * disagreement`, rather than making every disagreement of `0.25` or higher automatically `Uncertain`. The raw scores, combined score, disagreement value, and final label will get stored in the audit log.
 
 **Transparency Label Design**
 
