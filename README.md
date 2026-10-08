@@ -4,6 +4,8 @@ Provenance Guard is a Flask-based prototype system that estimates whether submit
 
 ## Demo
 
+https://drive.google.com/file/d/1zvV8EsKporX3MAuLA3bstTVttv6lxw-P/view?usp=sharing
+
 ## Architecture Overview
 
 ### Submission flow
